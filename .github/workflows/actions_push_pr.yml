@@ -1,0 +1,27 @@
+name: Action on Pull Request to generate Kong Config from Spec and Validate it
+
+on:
+  pull_request:
+    branches:
+      - main
+      
+jobs:
+  deploy_to_kong:
+    runs-on: self-hosted
+    name: Generate Kong config from Spec and Validate config
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Lint OpenAPI Specification
+        run: inso lint spec openapi/bankong-v1.3.0.yaml --ci
+      - name: Test OpenAPI Spec
+        run: inso run test uts_97298 --env localdev --ci
+      - name: Create OpenAPI Specification From Insomnia
+        run: inso export spec spc_ca6fc --output openapi/bankong-openapi.yaml --ci
+      - name: Generate Kong declarative configuration from Spec
+        run: inso generate config openapi/bankong-openapi.yaml --type declarative > bankong-deck2.x.yaml
+      - name: Convert configuration for 3.0
+        run: deck convert --from kong-gateway-2.x --to kong-gateway-3.x --input-file bankong-deck2.x.yaml --output-file bankong-deck3.x.yaml
+      - name: Validate Kong declarative configuration
+        run: deck validate -s bankong-deck3.x.yaml
+

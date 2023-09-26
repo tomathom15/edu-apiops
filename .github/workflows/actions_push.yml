@@ -1,0 +1,34 @@
+name: Apply generated configuration to local Kong gateway and update API documentation
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy_to_kong:
+    runs-on: self-hosted
+    name: Apply generated configuration to local Kong gateway and update API documentation
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Generate Kong declarative configuration from Spec
+        run: inso generate config openapi/bankong-v1.3.0.yaml --type declarative > bankong-deck2.x.yaml
+      - name: Convert configuration for 3.0
+        run: deck convert --from kong-gateway-2.x --to kong-gateway-3.x --input-file bankong-deck2.x.yaml --output-file bankong-deck3.x.yaml
+      - name: fix temporary regex issue 
+        run: sed 's/\\//' bankong-deck3.x.yaml > bankong-deck.yaml
+      - name: Validate Kong declarative configuration
+        run: deck validate -s bankong-deck.yaml
+      - name: Deploy declarative config
+        run: deck sync -s bankong-deck.yaml -s deck/consumers -s deck/plugins
+      - name: Publish Spec to Dev Portal
+        run: cd ./openapi && http --check-status --ignore-stdin PUT :8001/default/files/specs/bankong-v1.3.0.yaml contents=@bankong-v1.3.0.yaml
+
+
+        
+
+
+
+
+
